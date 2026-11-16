@@ -13,6 +13,17 @@
 
 ---
 
+## 内容导航
+
+| 模块 | 内容 | 入口 |
+|---|---|---|
+| 接口自动化 | 44 条用例：边界值、异常分支、幂等去重、并发一致性、契约校验 | [`tests/`](tests) |
+| 负载测试 | 三套脚本（内置执行器 / locust / JMeter），输出 TPS 与 P95 曲线 | [`perf/`](perf) |
+| 数据分析 | pandas 清洗 → 判定口径 → matplotlib 出图 → 结论在前的报告 | [`analysis/`](analysis) |
+| 环境搭建 SOP | 从裸机到可用测试环境的 11 步操作手册，含自检脚本与故障速查 | [`docs/environment-setup.md`](docs/environment-setup.md) |
+
+---
+
 ## 一、为什么做这个项目
 
 硬件/穿戴测试岗真正缺的不是"会点用例的人"，而是两类能力：
@@ -105,6 +116,8 @@ device-qa-toolkit/
 │   ├── locustfile.py             # locust 脚本（Web UI / 分布式）
 │   ├── jmeter/device_api.jmx     # JMeter 测试计划
 │   └── README.md                 # 场景设计、参数化、判据、结果局限
+├── docs/
+│   └── environment-setup.md      # 测试环境搭建说明书（11 步）
 ├── scripts/                      # 造数 + 一键出报告
 ├── data/sample/                  # 模拟数据（含 3 条故意掺入的脏数据）
 └── reports/                      # 报告与图表产物（功能 / 分析 / 性能）
@@ -216,7 +229,15 @@ SPEC_TEMP_RANGE     = (-20.0, 60.0)
 - [ ] 接入真实设备的串口/MQTT 数据源，替换 `mock_server`
 - [ ] 数据分析侧增加 Weibull 拟合，估算失效率与寿命
 
-## 十、说明
+## 十、配套文档
+
+| 文档 | 内容 |
+|---|---|
+| [`perf/README.md`](perf/README.md) | 压测场景配比理由、三个必设参数、结果局限 |
+| [`docs/environment-setup.md`](docs/environment-setup.md) | 测试环境搭建说明书（11 步）：需求确认 → 规划 → 基础环境 → 运行时 → 中间件 → 部署 → 数据初始化 → 冒烟 → 交付文档 → 自检脚本 → 故障速查 |
+| [`analysis/`](analysis) | 数据清洗规则与判定口径（常量集中在 `metrics.py` 顶部） |
+
+## 十一、说明
 
 - 被测服务为演示用内存实现，数据不落盘、重启即清空；
 - 样例数据为程序生成的模拟数据，不含任何真实产品信息；
