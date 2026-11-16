@@ -1,0 +1,187 @@
+# Device QA Toolkit
+
+一套面向智能穿戴/物联网设备的测试工程示例：**接口自动化 + 并发一致性 + 试验数据分析报告**。
+
+整个仓库零外部依赖（被测服务用标准库实现），`git clone` 后两条命令即可跑通全部用例并生成一份带图表的分析报告。
+
+<p>
+<img alt="python" src="https://img.shields.io/badge/python-3.10%2B-blue">
+<img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC">
+<img alt="tests" src="https://img.shields.io/badge/tests-44%20passed-brightgreen">
+<img alt="license" src="https://img.shields.io/badge/license-MIT-lightgrey">
+</p>
+
+---
+
+## 一、为什么做这个项目
+
+硬件/穿戴测试岗真正缺的不是"会点用例的人"，而是两类能力：
+
+1. **能把接口和数据一致性测明白** —— 设备上报的数据一旦重复或丢失，后面所有统计口径都是错的；
+2. **能把一堆原始数值整理成可判读的结论** —— 容量、温升、心率这些物理量，最终要变成"过没过、谁没过、为什么"。
+
+这个仓库就是这两件事的最小可运行实现。
+
+## 二、架构
+
+```mermaid
+flowchart LR
+    subgraph 测试层
+        T1[tests/api<br/>功能与边界]
+        T2[tests/consistency<br/>并发一致性]
+        T3[tests/data<br/>接口契约]
+        T4[tests/analysis<br/>分析口径单测]
+    end
+    subgraph 支撑层
+        U[utils<br/>HTTP 封装 / 断言 / 造数]
+        M[mock_server<br/>被测服务]
+    end
+    subgraph 数据层
+        A[analysis<br/>pandas 清洗统计]
+        P[matplotlib 出图]
+        R[reports/report.md]
+    end
+
+    T1 --> U
+    T2 --> U
+    T3 --> U
+    U --> M
+    T4 --> A
+    A --> P --> R
+```
+
+## 三、快速开始
+
+```bash
+git clone <your-repo-url>
+cd device-qa-toolkit
+
+python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+pytest                        # 跑全部 44 条用例
+pytest -m smoke               # 只跑冒烟
+pytest -m consistency         # 只跑并发一致性
+
+python scripts/gen_sample_data.py   # 生成 2500 条模拟试验数据
+python scripts/run_analysis.py      # 输出 reports/report.md 与三张图
+```
+
+也可以直接用 Makefile：
+
+```bash
+make install && make test && make analysis
+```
+
+## 四、目录结构
+
+```
+device-qa-toolkit/
+├── mock_server/app.py            # 被测服务：设备注册 / 数据上报 / 汇总统计（标准库实现）
+├── utils/
+│   ├── http_client.py            # 统一超时、日志、响应封装
+│   ├── assertions.py             # 断言封装，失败信息自带上下文
+│   └── data_factory.py           # 测试数据构造，可指定 seed 复现
+├── tests/
+│   ├── conftest.py               # session 级起服务、function 级重置数据
+│   ├── api/                      # 功能 + 边界值 + 异常分支
+│   ├── consistency/              # 并发重复上报 / 并发不丢数据
+│   ├── data/                     # 接口契约（Schema）校验
+│   └── analysis/                 # 数据分析口径的单元测试
+├── analysis/
+│   ├── metrics.py                # 清洗规则 + 判定口径 + 分组统计
+│   ├── plots.py                  # 三张图：容量衰减 / 温升分布 / 判定概览
+│   └── report.py                 # 结论在前的 Markdown 报告
+├── scripts/                      # 造数 + 一键出报告
+├── data/sample/                  # 模拟数据（含 3 条故意掺入的脏数据）
+└── reports/                      # 报告与图表产物
+```
+
+## 五、测试设计说明
+
+### 5.1 分层与夹具
+
+| 层级 | 范围 | 设计意图 |
+|---|---|---|
+| `session` | 启动一次被测服务（随机空闲端口） | 避免每条用例重启服务，44 条用例 1.6 秒跑完 |
+| `function` | 每条用例前 `POST /api/admin/reset` | 用例之间零耦合，可单独运行、可乱序运行、可并发执行 |
+
+### 5.2 用例设计方法
+
+- **等价类 + 边界值**：`name` 长度 0 / 1 / 32 / 33；温度 -40 / 85 / -40.1 / 85.1；电量 0 / 100 / -1 / 101；心率 30 / 220 / 29 / 221 / null
+- **场景法**：创建 → 查询 → 删除 → 再查询（状态流转闭环）
+- **错误猜测**：重复创建（409）、删除不存在设备（404）、未注册设备上报（404）、缺必填字段（400）
+
+### 5.3 并发一致性用例（本仓库的重点）
+
+```python
+# tests/consistency/test_concurrent_upload.py
+# 20 个线程同时上报同一条数据（同 sn + 同 ts）
+assert len(created) == 1        # 只能真正创建一次
+assert len(duplicated) == 19    # 其余判定为重复
+assert len(listed.data) == 1    # 库里只能有一条
+```
+
+**为什么单独测这个**：网络重试导致设备数据重复入库，是穿戴类产品的高频缺陷。它不会让接口报错，只会让统计口径悄悄偏掉——比如"日均步数"偏高 15%，然后没人知道为什么。
+
+同时测了反向风险：**并发写入不同数据时不能丢**。丢数据比重复更隐蔽。
+
+### 5.4 接口契约校验
+
+字段类型漂移（如 `battery_pct` 从 `int` 变 `string`）业务断言可能仍然通过，但下游报表会静默出错。`tests/data/` 专门守这一层，并校验「心率可为 null，但不能为 0」。
+
+## 六、数据分析说明
+
+### 6.1 清洗规则（不做插补）
+
+| 规则 | 处理 | 理由 |
+|---|---|---|
+| 关键字段缺失 | 剔除并计数 | 插补会让"看起来通过"的风险变高 |
+| 超出传感器量程 | 剔除并计数 | 这是采集问题，不是产品问题，混在一起会误判 |
+| 同设备同循环重复 | 保留时间最新一条 | 设备重传属于正常现象 |
+
+### 6.2 判定口径
+
+全部集中在 `analysis/metrics.py` 顶部常量，便于按项目规格替换：
+
+```python
+CAPACITY_PASS_RATIO = 0.80    # 循环后容量保持率 ≥ 80%
+TEMP_PASS_LIMIT_C   = 45.0    # 表面温升上限
+SPEC_TEMP_RANGE     = (-20.0, 60.0)
+```
+
+温升判定用 **P95 而不是最大值**：偶发单点尖峰不该直接判死，但持续偏高必须拦住。
+
+### 6.3 报告输出示例
+
+`reports/report.md` 的结论部分：
+
+> 受试设备 **5** 台，通过 **3** 台，未通过 **2** 台，通过率 **60.0%**
+> - `AB10000003`：容量保持率 74.11% 低于 80%
+> - `AB10000004`：P95 温升 49.96℃ 超过 45.0℃
+
+图表：
+
+| 容量衰减曲线 | 温升分布 |
+|---|---|
+| ![capacity](reports/capacity_fade.png) | ![temp](reports/temp_distribution.png) |
+
+## 七、持续集成
+
+`.github/workflows/ci.yml`：每次 push 自动安装依赖、跑全部用例、生成 HTML 测试报告与数据分析报告，并作为 artifact 上传。
+
+## 八、后续可扩展
+
+- [ ] 接入 Allure 报告，补充用例分级与趋势
+- [ ] 用 `pytest-xdist` 做多进程并行，验证用例无状态依赖
+- [ ] 增加性能基线：用 `JMeter` 或 `locust` 对上报接口做压测，输出 TPS/RT 曲线
+- [ ] 接入真实设备的串口/MQTT 数据源，替换 `mock_server`
+- [ ] 数据分析侧增加 Weibull 拟合，估算失效率与寿命
+
+## 九、说明
+
+- 被测服务为演示用内存实现，数据不落盘、重启即清空；
+- 样例数据为程序生成的模拟数据，不含任何真实产品信息；
+- 判定口径为示例值，实际项目以产品规格书与企业标准为准。
+
+MIT License.
