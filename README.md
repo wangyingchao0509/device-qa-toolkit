@@ -1,8 +1,8 @@
 # Device QA Toolkit
 
-一套面向智能穿戴/物联网设备的测试工程示例：**接口自动化 + 并发一致性 + 试验数据分析报告**。
+一套面向智能穿戴/物联网设备的测试工程示例：**接口自动化 + 并发一致性 + 负载测试 + 试验数据分析报告**。
 
-整个仓库零外部依赖（被测服务用标准库实现），`git clone` 后两条命令即可跑通全部用例并生成一份带图表的分析报告。
+整个仓库零外部依赖（被测服务用标准库实现），`git clone` 后两条命令即可跑通全部用例、生成负载测试报告和带图表的分析报告。
 
 <p>
 <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-blue">
@@ -41,6 +41,10 @@ flowchart LR
         P[matplotlib 出图]
         R[reports/report.md]
     end
+    subgraph 性能层
+        PF[perf/run_load_test.py<br/>阶梯加压 + 指标]
+        LC[locustfile.py / device_api.jmx]
+    end
 
     T1 --> U
     T2 --> U
@@ -48,6 +52,9 @@ flowchart LR
     U --> M
     T4 --> A
     A --> P --> R
+    PF --> M
+    LC --> M
+    PF --> R
 ```
 
 ## 三、快速开始
@@ -65,12 +72,13 @@ pytest -m consistency         # 只跑并发一致性
 
 python scripts/gen_sample_data.py   # 生成 2500 条模拟试验数据
 python scripts/run_analysis.py      # 输出 reports/report.md 与三张图
+python perf/run_load_test.py --users 20 --duration 10   # 负载测试 + 性能报告
 ```
 
 也可以直接用 Makefile：
 
 ```bash
-make install && make test && make analysis
+make install && make test && make analysis && make perf
 ```
 
 ## 四、目录结构
@@ -92,9 +100,14 @@ device-qa-toolkit/
 │   ├── metrics.py                # 清洗规则 + 判定口径 + 分组统计
 │   ├── plots.py                  # 三张图：容量衰减 / 温升分布 / 判定概览
 │   └── report.py                 # 结论在前的 Markdown 报告
+├── perf/
+│   ├── run_load_test.py          # 阶梯加压 + TPS/RT 分位统计 + 报告
+│   ├── locustfile.py             # locust 脚本（Web UI / 分布式）
+│   ├── jmeter/device_api.jmx     # JMeter 测试计划
+│   └── README.md                 # 场景设计、参数化、判据、结果局限
 ├── scripts/                      # 造数 + 一键出报告
 ├── data/sample/                  # 模拟数据（含 3 条故意掺入的脏数据）
-└── reports/                      # 报告与图表产物
+└── reports/                      # 报告与图表产物（功能 / 分析 / 性能）
 ```
 
 ## 五、测试设计说明
@@ -166,19 +179,44 @@ SPEC_TEMP_RANGE     = (-20.0, 60.0)
 |---|---|
 | ![capacity](reports/capacity_fade.png) | ![temp](reports/temp_distribution.png) |
 
-## 七、持续集成
+## 七、性能测试
+
+三种方式，场景配比一致：`run_load_test.py`（自带报告，可进 CI）、`locustfile.py`（Web UI / 分布式）、`jmeter/device_api.jmx`（JMeter 体系）。详见 [perf/README.md](perf/README.md)。
+
+**场景配比**：上报 55% / 查询 30% / 汇总 15%。不全压同一个接口——那测的是单接口极限，不是系统容量。
+
+**三个必须设置好的参数**：
+
+1. **思考时间** 50~200ms，不加等于把并发压力放大数倍，瓶颈是假的；
+2. **参数化** 每台虚拟设备独立 SN，数据随机。同一 SN 循环上报会命中幂等去重，TPS 虚高但没真正写入；
+3. **阶梯加压** 5 秒铺开用户，才能看到性能随并发变化的曲线。
+
+**实测输出**（`--users 20 --duration 10`）：
+
+```
+总请求数 2071     平均 TPS 205.88
+平均 RT 17.1ms    P50 / P95 / P99 = 16.0 / 36.8 / 46.7 ms
+错误率 0.0%
+```
+
+产物：`reports/perf_report.md`（含判据与结论）、`reports/perf_throughput.png`（TPS 与 P95 双曲线）、`reports/raw/perf_summary.json`。
+
+**局限必须讲清**：被测服务是单进程内存实现，瓶颈先出现在被测端（GIL）；压测机与被测同机，P95 偏高；数据量级与真实库差几个数量级。**这些数字用来验证脚本与指标口径，不代表真实容量。**
+
+## 八、持续集成
 
 `.github/workflows/ci.yml`：每次 push 自动安装依赖、跑全部用例、生成 HTML 测试报告与数据分析报告，并作为 artifact 上传。
 
-## 八、后续可扩展
+## 九、后续可扩展
 
 - [ ] 接入 Allure 报告，补充用例分级与趋势
 - [ ] 用 `pytest-xdist` 做多进程并行，验证用例无状态依赖
-- [ ] 增加性能基线：用 `JMeter` 或 `locust` 对上报接口做压测，输出 TPS/RT 曲线
+- [ ] 性能侧接入 Prometheus + Grafana，把 CPU/内存/TPS 画在同一张时间轴上
+- [ ] 增加稳定性专项：70% 峰值压力跑 8 小时，观察内存是否持续增长
 - [ ] 接入真实设备的串口/MQTT 数据源，替换 `mock_server`
 - [ ] 数据分析侧增加 Weibull 拟合，估算失效率与寿命
 
-## 九、说明
+## 十、说明
 
 - 被测服务为演示用内存实现，数据不落盘、重启即清空；
 - 样例数据为程序生成的模拟数据，不含任何真实产品信息；

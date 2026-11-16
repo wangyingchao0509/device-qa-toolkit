@@ -1,0 +1,31 @@
+{
+  "duration_s": 10.1,
+  "requests": 2071,
+  "tps": 205.88,
+  "error_rate_pct": 0.0,
+  "avg_ms": 17.1,
+  "p50_ms": 16.0,
+  "p95_ms": 36.8,
+  "p99_ms": 46.7,
+  "max_ms": 54.0,
+  "scenarios": {
+    "查询数据": {
+      "count": 639,
+      "error_rate_pct": 0.0,
+      "avg_ms": 17.0,
+      "p95_ms": 36.5
+    },
+    "上报数据": {
+      "count": 1089,
+      "error_rate_pct": 0.0,
+      "avg_ms": 17.2,
+      "p95_ms": 37.6
+    },
+    "查询汇总": {
+      "count": 343,
+      "error_rate_pct": 0.0,
+      "avg_ms": 17.1,
+      "p95_ms": 35.1
+    }
+  }
+}

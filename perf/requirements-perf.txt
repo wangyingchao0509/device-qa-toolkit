@@ -1,0 +1,3 @@
+# 性能测试额外依赖（与主 requirements 分开，保持主环境轻量）
+-r requirements.txt
+locust==2.32.3
