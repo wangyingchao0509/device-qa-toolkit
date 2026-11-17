@@ -1,4 +1,4 @@
-.PHONY: help install test smoke consistency analysis report perf llm-evals clean
+.PHONY: help install test smoke consistency analysis report perf llm-evals llm-deepeval clean
 
 help:
 	@echo "make install    - 创建虚拟环境并安装依赖"
@@ -9,6 +9,7 @@ help:
 	@echo "make report     - 运行用例并生成 HTML 报告"
 	@echo "make perf       - 运行负载测试并输出性能报告"
 	@echo "make llm-evals  - 跑一轮大模型评测并出报告"
+	@echo "make llm-deepeval- 用 DeepEval 跑真指标（需 API Key）"
 	@echo "make clean      - 清理缓存与产物"
 
 install:
@@ -37,6 +38,9 @@ perf:
 
 llm-evals:
 	.venv/bin/python llm_evals/run_evals.py
+
+llm-deepeval:
+	.venv/bin/python -m llm_evals.deepeval_adapter --limit 5
 
 clean:
 	rm -rf .pytest_cache reports/pytest.html

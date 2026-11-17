@@ -111,7 +111,30 @@ Kappa = (观察一致率 - 期望一致率) / (1 - 期望一致率)
 真实项目的门禁逻辑应该是：**通过率低于基线、或幻觉/注入数上升，就阻断合并**。
 不是"必须 100%"，因为大模型做不到；而是"不能比上一版更差"。
 
-## 八、可以继续做的
+
+## 九、可选：接入 DeepEval
+
+自己在 `judge.py` 里实现的规则判分与关键词判分，是 DeepEval 的最小版。想用工业版指标时：
+
+```bash
+pip install -r llm_evals/requirements-deepeval.txt
+export OPENAI_API_KEY=sk-xxx
+python -m llm_evals.deepeval_adapter --limit 5     # 先跑 5 条控制成本
+```
+
+它做的事：把 yaml 里的 `expected_contains` / `must_not_contain` 翻译成自然语言判据，
+交给 `GEval` 打分，再用 `AnswerRelevancyMetric` 判相关性，输出逐条分数与理由。
+
+**三个设计要点**（这也是"可选依赖"的正确做法）：
+
+1. **没装就跳过**：`pytest` 里用 `skipif`，别人克隆仓库仍然全绿，不会因为缺依赖红一片；
+2. **没 Key 也跳过**：真指标必须调判官模型，有成本，不能默默跑；
+3. **跳过要给理由**：报出"未安装 deepeval"还是"未配置 API Key"，别让人猜。
+
+> 为什么不把它作为默认路径：① 每个指标都调一次判官，20 条用例 × 2 指标就是 40 次调用；
+> ② 判官会带来噪声，阈值没调好会让 CI 频繁误红；③ 规则能判的部分本来就不该花这个钱。
+
+## 十、可以继续做的
 
 - [ ] 把 Mock 判官换成真 LLM 判官（prompt 见下），并重跑 Kappa 校准
 - [ ] 加多轮对话用例（指代消解、上下文串台）
