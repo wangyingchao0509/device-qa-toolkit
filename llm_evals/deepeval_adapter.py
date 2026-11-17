@@ -56,6 +56,26 @@ def build_criteria(case: dict) -> str:
     return "；".join(parts) + "。"
 
 
+def _judge_model():
+    """构造判官模型。
+
+    默认走 OpenAI；设置 DEEPEVAL_JUDGE_BASE_URL 后可指向任何 OpenAI 兼容端点：
+        export OPENAI_API_KEY=sk-xxx
+        export DEEPEVAL_JUDGE_BASE_URL=https://api.deepseek.com/v1
+        export DEEPEVAL_JUDGE_MODEL=deepseek-chat
+    """
+    base_url = os.getenv("DEEPEVAL_JUDGE_BASE_URL")
+    if not base_url:
+        return None  # 不指定就用 DeepEval 默认（OpenAI）
+    from deepeval.models import OpenAIModel
+
+    return OpenAIModel(
+        model=os.getenv("DEEPEVAL_JUDGE_MODEL", "deepseek-chat"),
+        base_url=base_url,
+        api_key=os.getenv("OPENAI_API_KEY") or os.getenv("LLM_API_KEY"),
+    )
+
+
 def _params_enum():
     """不同版本枚举名不同，做兼容。"""
     try:
@@ -75,10 +95,15 @@ def evaluate_cases(
     judge_model: str | None = None,
 ) -> dict:
     """逐条调用 DeepEval 指标评分，返回汇总。"""
+    reason = skip_reason()
+    if reason:
+        raise RuntimeError(f"DeepEval 不可用：{reason}")
+
     from deepeval.metrics import AnswerRelevancyMetric, GEval
     from deepeval.test_case import LLMTestCase
 
     Params = _params_enum()
+    judge = _judge_model()
     provider = get_provider()
     cases = load_cases(cases_path)["cases"]
     if limit:
@@ -90,7 +115,9 @@ def evaluate_cases(
         tc = LLMTestCase(input=case["input"], actual_output=completion.text)
 
         kwargs = {"threshold": threshold}
-        if judge_model:
+        if judge:
+            kwargs["model"] = judge
+        elif judge_model:
             kwargs["model"] = judge_model
 
         correctness = GEval(
