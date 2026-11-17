@@ -35,6 +35,10 @@ jobs:
           python scripts/gen_sample_data.py
           python scripts/run_analysis.py
 
+      - name: LLM evals (mock model)
+        run: |
+          python llm_evals/run_evals.py --repeats 1
+
       - name: Smoke load test (5 VU / 5s)
         run: |
           python perf/run_load_test.py --users 5 --duration 5 --ramp 2
@@ -55,3 +59,5 @@ jobs:
             reports/report.md
             reports/*.png
             reports/perf_report.md
+            reports/llm_eval_report.md
+            reports/llm_pass_rate.png

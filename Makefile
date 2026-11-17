@@ -1,4 +1,4 @@
-.PHONY: help install test smoke consistency analysis report perf clean
+.PHONY: help install test smoke consistency analysis report perf llm-evals clean
 
 help:
 	@echo "make install    - 创建虚拟环境并安装依赖"
@@ -8,6 +8,7 @@ help:
 	@echo "make analysis   - 生成样例数据并输出分析报告"
 	@echo "make report     - 运行用例并生成 HTML 报告"
 	@echo "make perf       - 运行负载测试并输出性能报告"
+	@echo "make llm-evals  - 跑一轮大模型评测并出报告"
 	@echo "make clean      - 清理缓存与产物"
 
 install:
@@ -33,6 +34,9 @@ report:
 
 perf:
 	.venv/bin/python perf/run_load_test.py --users 20 --duration 10 --ramp 5
+
+llm-evals:
+	.venv/bin/python llm_evals/run_evals.py
 
 clean:
 	rm -rf .pytest_cache reports/pytest.html

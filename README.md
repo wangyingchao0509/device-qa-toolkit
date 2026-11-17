@@ -20,6 +20,7 @@
 | 接口自动化 | 44 条用例：边界值、异常分支、幂等去重、并发一致性、契约校验 | [`tests/`](tests) |
 | 负载测试 | 三套脚本（内置执行器 / locust / JMeter），输出 TPS 与 P95 曲线 | [`perf/`](perf) |
 | 数据分析 | pandas 清洗 → 判定口径 → matplotlib 出图 → 结论在前的报告 | [`analysis/`](analysis) |
+| 大模型评测 | 20 条黄金集 + 规则断言 + 判官 Kappa 校准 + 成本统计 | [`llm_evals/`](llm_evals) |
 | 环境搭建 SOP | 从裸机到可用测试环境的 11 步操作手册，含自检脚本与故障速查 | [`docs/environment-setup.md`](docs/environment-setup.md) |
 
 ---
@@ -71,7 +72,7 @@ flowchart LR
 ## 三、快速开始
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/wangyingchao0509/device-qa-toolkit.git
 cd device-qa-toolkit
 
 python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
@@ -84,6 +85,7 @@ pytest -m consistency         # 只跑并发一致性
 python scripts/gen_sample_data.py   # 生成 2500 条模拟试验数据
 python scripts/run_analysis.py      # 输出 reports/report.md 与三张图
 python perf/run_load_test.py --users 20 --duration 10   # 负载测试 + 性能报告
+python llm_evals/run_evals.py                           # 大模型评测 + 报告
 ```
 
 也可以直接用 Makefile：
@@ -116,6 +118,7 @@ device-qa-toolkit/
 │   ├── locustfile.py             # locust 脚本（Web UI / 分布式）
 │   ├── jmeter/device_api.jmx     # JMeter 测试计划
 │   └── README.md                 # 场景设计、参数化、判据、结果局限
+├── llm_evals/                    # 大模型评测：黄金集 / 判官 / 跑批 / 报告
 ├── docs/
 │   └── environment-setup.md      # 测试环境搭建说明书（11 步）
 ├── scripts/                      # 造数 + 一键出报告
@@ -216,11 +219,30 @@ SPEC_TEMP_RANGE     = (-20.0, 60.0)
 
 **局限必须讲清**：被测服务是单进程内存实现，瓶颈先出现在被测端（GIL）；压测机与被测同机，P95 偏高；数据量级与真实库差几个数量级。**这些数字用来验证脚本与指标口径，不代表真实容量。**
 
-## 八、持续集成
+## 八、大模型评测（LLM Evals）
+
+用「智能手表售后客服助手」做被测场景，演示大模型测试的最小闭环。**无 API Key 也能跑**（内置确定性 Mock 模型）。
+
+```bash
+python llm_evals/run_evals.py        # 出报告：通过率、分类明细、判官校准、成本
+pytest -m llm                        # 只跑评测相关用例
+```
+
+三个设计要点：
+
+1. **规则断言优先**：`expected_contains` + `must_not_contain`，零成本、100% 可复现；语义判断才用判官。
+2. **判官必须校准**：19 条人工标注算 Cohen's Kappa（当前 0.756），低于 0.6 视为不可用——否则你在用一个不可信的尺子。
+3. **三件套版本绑定**：结果文件强制记录 模型 + 提示词 + 数据集 版本和 temperature/seed，否则结论下周无法复现。
+
+当前基线：**18/20 = 90%**，其中 1 例提示词注入泄露、1 例被错误前提带跑的幻觉——这两条是**故意留的**，用来证明框架抓得住问题。
+
+详见 [llm_evals/README.md](llm_evals/README.md)。
+
+## 九、持续集成
 
 `.github/workflows/ci.yml`：每次 push 自动安装依赖、跑全部用例、生成 HTML 测试报告与数据分析报告，并作为 artifact 上传。
 
-## 九、后续可扩展
+## 十、后续可扩展
 
 - [ ] 接入 Allure 报告，补充用例分级与趋势
 - [ ] 用 `pytest-xdist` 做多进程并行，验证用例无状态依赖
@@ -229,7 +251,7 @@ SPEC_TEMP_RANGE     = (-20.0, 60.0)
 - [ ] 接入真实设备的串口/MQTT 数据源，替换 `mock_server`
 - [ ] 数据分析侧增加 Weibull 拟合，估算失效率与寿命
 
-## 十、配套文档
+## 十一、配套文档
 
 | 文档 | 内容 |
 |---|---|
@@ -237,7 +259,7 @@ SPEC_TEMP_RANGE     = (-20.0, 60.0)
 | [`docs/environment-setup.md`](docs/environment-setup.md) | 测试环境搭建说明书（11 步）：需求确认 → 规划 → 基础环境 → 运行时 → 中间件 → 部署 → 数据初始化 → 冒烟 → 交付文档 → 自检脚本 → 故障速查 |
 | [`analysis/`](analysis) | 数据清洗规则与判定口径（常量集中在 `metrics.py` 顶部） |
 
-## 十一、说明
+## 十二、说明
 
 - 被测服务为演示用内存实现，数据不落盘、重启即清空；
 - 样例数据为程序生成的模拟数据，不含任何真实产品信息；
