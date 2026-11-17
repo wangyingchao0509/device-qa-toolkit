@@ -61,8 +61,8 @@ def _judge_model():
 
     默认走 OpenAI；设置 DEEPEVAL_JUDGE_BASE_URL 后可指向任何 OpenAI 兼容端点：
         export OPENAI_API_KEY=sk-xxx
-        export DEEPEVAL_JUDGE_BASE_URL=https://api.deepseek.com/v1
-        export DEEPEVAL_JUDGE_MODEL=deepseek-chat
+        export DEEPEVAL_JUDGE_BASE_URL=https://api.deepseek.com
+        export DEEPEVAL_JUDGE_MODEL=deepseek-flash
     """
     base_url = os.getenv("DEEPEVAL_JUDGE_BASE_URL")
     if not base_url:
@@ -70,7 +70,7 @@ def _judge_model():
     from deepeval.models import OpenAIModel
 
     return OpenAIModel(
-        model=os.getenv("DEEPEVAL_JUDGE_MODEL", "deepseek-chat"),
+        model=os.getenv("DEEPEVAL_JUDGE_MODEL", "deepseek-flash"),
         base_url=base_url,
         api_key=os.getenv("OPENAI_API_KEY") or os.getenv("LLM_API_KEY"),
     )

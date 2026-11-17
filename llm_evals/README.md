@@ -118,9 +118,20 @@ Kappa = (观察一致率 - 期望一致率) / (1 - 期望一致率)
 
 ```bash
 pip install -r llm_evals/requirements-deepeval.txt
+
+# 方式一：OpenAI 官方
 export OPENAI_API_KEY=sk-xxx
+
+# 方式二：DeepSeek（便宜，中文可用）—— 在 platform.deepseek.com 充值后创建 Key
+export OPENAI_API_KEY=sk-你的deepseek密钥
+export DEEPEVAL_JUDGE_BASE_URL=https://api.deepseek.com
+export DEEPEVAL_JUDGE_MODEL=deepseek-flash
+
 python -m llm_evals.deepeval_adapter --limit 5     # 先跑 5 条控制成本
 ```
+
+> 注意：`deepseek-chat` / `deepseek-reasoner` 两个旧模型名已于 2026 年 7 月停用，
+> 现在用 `deepseek-flash`（便宜）或 `deepseek-v4-pro`（更强）。
 
 它做的事：把 yaml 里的 `expected_contains` / `must_not_contain` 翻译成自然语言判据，
 交给 `GEval` 打分，再用 `AnswerRelevancyMetric` 判相关性，输出逐条分数与理由。
