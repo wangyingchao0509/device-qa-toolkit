@@ -73,6 +73,10 @@ def _judge_model():
         model=os.getenv("DEEPEVAL_JUDGE_MODEL", "deepseek-flash"),
         base_url=base_url,
         api_key=os.getenv("OPENAI_API_KEY") or os.getenv("LLM_API_KEY"),
+        temperature=0,
+        # 关键：关掉推理模式。判官只要给分，不需要"思考过程"，
+        # 开着会多花 token、变慢，还会让输出里混入 reasoning 内容。
+        generation_kwargs={"extra_body": {"thinking": {"type": "disabled"}}},
     )
 
 
