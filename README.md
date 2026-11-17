@@ -236,6 +236,8 @@ pytest -m llm                        # 只跑评测相关用例
 
 当前基线：**18/20 = 90%**，其中 1 例提示词注入泄露、1 例被错误前提带跑的幻觉——这两条是**故意留的**，用来证明框架抓得住问题。
 
+另做过一次**规则判分 vs LLM 判官**的对比实验（DeepSeek 当判官，20 条）：判官把一条正确回答判成 0 分且理由自相矛盾，据此定下“确定性断言用代码、语义质量才交给判官”的分工，见 [llm_evals/docs/judge-vs-rule.md](llm_evals/docs/judge-vs-rule.md)。
+
 另提供**可选**的 DeepEval 集成（`python -m llm_evals.deepeval_adapter`）：装了 deepeval 且配了 Key 才跑真指标，否则自动跳过——保证仓库永远是「克隆即可运行」。
 
 详见 [llm_evals/README.md](llm_evals/README.md)。
