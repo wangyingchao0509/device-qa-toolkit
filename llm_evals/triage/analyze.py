@@ -22,6 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
+from llm_evals.triage.llm_fallback import ModelTriage  # noqa: E402
 from llm_evals.triage.rules import Case, attribute, summarize  # noqa: E402
 
 RAW = ROOT / "reports" / "raw"
@@ -72,20 +73,25 @@ def load_cases(path: Path) -> tuple[list[Case], str]:
     return cases, "未知格式"
 
 
-def render(cases: list[Case], source: str, summary: dict, out_dir: Path) -> Path:
-    rows = []
+def render(cases: list[Case], source: str, summary: dict, out_dir: Path,
+           use_llm: bool = False) -> tuple[Path, list]:
+    judge = ModelTriage() if use_llm else None
+    attributions = []
     for c in cases:
         a = attribute(c)
+        if judge is not None:
+            a = judge.judge(c, a)
+        attributions.append(a)
+
+    rows = []
+    for c, a in zip(cases, attributions):
+        tag = "模型" if a.source == "llm" else "规则"
         rows.append(
             f"| {a.case_id} | {c.intent} | **{a.layer}** | {a.verdict} | {a.evidence[:40]} | "
-            f"{a.owner} | {a.confidence} |"
+            f"{a.owner} | {a.confidence} | {tag} |"
         )
 
-    gap_rows = [
-        f"| {a.case_id} | {a.blocking_gap} |"
-        for a in (attribute(c) for c in cases)
-        if a.blocking_gap
-    ]
+    gap_rows = [f"| {a.case_id} | {a.blocking_gap} |" for a in attributions if a.blocking_gap]
 
     lines = [
         "# Bad Case 归因报告",
@@ -106,8 +112,8 @@ def render(cases: list[Case], source: str, summary: dict, out_dir: Path) -> Path
         "",
         "## 二、逐条归因",
         "",
-        "| 用例 | 意图 | 归因层 | 结论 | 证据 | 建议谁改 | 置信度 |",
-        "|---|---|---|---|---|---|---|",
+        "| 用例 | 意图 | 归因层 | 结论 | 证据 | 建议谁改 | 置信度 | 判定来源 |",
+        "|---|---|---|---|---|---|---|---|",
         *rows,
     ]
 
@@ -124,15 +130,27 @@ def render(cases: list[Case], source: str, summary: dict, out_dir: Path) -> Path
             "> 结果文件里只有分数和理由时，规则只能覆盖一小部分；带上判据原文与检索片段后，覆盖率显著提升。",
         ]
 
+    llm_used = sum(1 for a in attributions if a.source == "llm")
+    if use_llm:
+        lines += [
+            "",
+            f"## 四、模型兜底",
+            "",
+            f"- 规则未判定的条目中，模型补充了 **{llm_used}** 条",
+            f"- 模型结论置信度上限为 medium：**它没有证据链，不给高置信**",
+            f"- 解析失败或调用异常时保留规则原结论，不中断整批",
+        ]
+
     path = out_dir / "triage_report.md"
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    return path
+    return path, attributions
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Bad Case 归因")
     parser.add_argument("--file", default=None, help="评测结果 JSON；默认自动查找")
     parser.add_argument("--out", default=str(ROOT / "reports"))
+    parser.add_argument("--llm", action="store_true", help="低置信条目启用模型兜底（默认 mock）")
     args = parser.parse_args()
 
     target = Path(args.file) if args.file else None
@@ -150,13 +168,18 @@ def main() -> None:
         print(f"{target.name} 中没有失败用例。")
         return
 
-    summary = summarize([attribute(c) for c in cases])
-    path = render(cases, source, summary, Path(args.out))
+    rough = [attribute(c) for c in cases]
+    summary = summarize(rough)
+    path, attrs = render(cases, source, summary, Path(args.out), use_llm=args.llm)
+    summary = summarize(attrs)
 
     print(f"数据源：{source}")
-    print(f"失败用例 {summary['total']} 条，规则覆盖 {summary['rule_coverage'] * 100:.0f}%"
-          f"（高置信 {summary['high_conf_coverage'] * 100:.0f}%），需兜底 {summary['need_model_or_human']} 条")
+    print(f"失败用例 {summary['total']} 条，可判定 {summary['rule_coverage'] * 100:.0f}%"
+          f"（其中高置信 {summary['high_conf_coverage'] * 100:.0f}%），"
+          f"待人工 {summary['need_model_or_human']} 条")
     print("归因分布：" + "、".join(f"{k} {v}" for k, v in summary["by_layer"].items()))
+    if args.llm:
+        print(f"模型兜底：补充 {sum(1 for a in attrs if a.source == 'llm')} 条")
     print(f"报告：{path}")
 
 

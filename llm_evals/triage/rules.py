@@ -62,6 +62,7 @@ class Attribution:
     owner: str
     confidence: str  # high / medium / low
     blocking_gap: str = ""  # 缺什么信息导致判不了
+    source: str = "rule"  # rule / llm，用于事后评估"模型补充了多少"
 
 
 def _ctx_text(case: Case) -> str:
