@@ -4,6 +4,9 @@
 
 整个仓库零外部依赖（被测服务用标准库实现），`git clone` 后两条命令即可跑通全部用例、生成负载测试报告和带图表的分析报告。
 
+**🔗 在线看板**：<https://wangyingchao0509.github.io/device-qa-toolkit/> —— 一页看完接口、性能、数据分析、大模型评测四类结果（由 GitHub Actions 每次推送自动重建）。
+
+
 <p>
 <img alt="python" src="https://img.shields.io/badge/python-3.10%2B-blue">
 <img alt="pytest" src="https://img.shields.io/badge/tested%20with-pytest-0A9EDC">
@@ -22,6 +25,7 @@
 | 数据分析 | pandas 清洗 → 判定口径 → matplotlib 出图 → 结论在前的报告 | [`analysis/`](analysis) |
 | 大模型评测 | 20 条黄金集 + 规则断言 + 判官 Kappa 校准 + 成本统计 | [`llm_evals/`](llm_evals) |
 | 环境搭建 SOP | 从裸机到可用测试环境的 11 步操作手册，含自检脚本与故障速查 | [`docs/environment-setup.md`](docs/environment-setup.md) |
+| 网页看板 | 四类结果汇总成单页，含图表与判分对比 | [在线看板](https://wangyingchao0509.github.io/device-qa-toolkit/) · [`scripts/build_dashboard.py`](scripts/build_dashboard.py) |
 
 ---
 
