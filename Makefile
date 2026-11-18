@@ -1,4 +1,4 @@
-.PHONY: help install test smoke consistency analysis report perf llm-evals llm-deepeval rag dashboard clean
+.PHONY: help install test smoke consistency analysis report perf llm-evals llm-deepeval rag triage dashboard clean
 
 help:
 	@echo "make install    - 创建虚拟环境并安装依赖"
@@ -11,6 +11,7 @@ help:
 	@echo "make llm-evals  - 跑一轮大模型评测并出报告"
 	@echo "make llm-deepeval- 用 DeepEval 跑真指标（需 API Key）"
 	@echo "make rag        - RAG 诊断（定责矩阵）"
+	@echo "make triage     - Bad Case 归因（失败用例该改哪一层）"
 	@echo "make dashboard  - 生成本地网页看板 reports/dashboard.html"
 	@echo "make clean      - 清理缓存与产物"
 
@@ -46,6 +47,9 @@ llm-deepeval:
 
 rag:
 	.venv/bin/python llm_evals/run_rag_eval.py
+
+triage:
+	.venv/bin/python -m llm_evals.triage.analyze
 
 dashboard:
 	.venv/bin/python -m pytest -q --junitxml=reports/raw/junit.xml
