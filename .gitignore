@@ -10,3 +10,5 @@ reports/*.log
 .DS_Store
 .idea/
 .vscode/
+reports/dashboard.html
+reports/raw/junit.xml

@@ -92,6 +92,8 @@ python llm_evals/run_evals.py                           # 大模型评测 + 报�
 
 ```bash
 make install && make test && make analysis && make perf
+
+make dashboard          # 汇总成单文件网页看板 → reports/dashboard.html
 ```
 
 ## 四、目录结构
@@ -121,7 +123,8 @@ device-qa-toolkit/
 ├── llm_evals/                    # 大模型评测：黄金集 / 判官 / 跑批 / 报告
 ├── docs/
 │   └── environment-setup.md      # 测试环境搭建说明书（11 步）
-├── scripts/                      # 造数 + 一键出报告
+├── scripts/                      # 造数 / 一键出报告 / 生成看板
+
 ├── data/sample/                  # 模拟数据（含 3 条故意掺入的脏数据）
 └── reports/                      # 报告与图表产物（功能 / 分析 / 性能）
 ```
