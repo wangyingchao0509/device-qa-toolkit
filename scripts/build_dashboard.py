@@ -15,6 +15,7 @@ import base64
 import html
 import json
 import os
+import re
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
@@ -99,6 +100,27 @@ def analysis_summary() -> list[str]:
     return out
 
 
+def parse_rag() -> dict | None:
+    """从 rag_report.md 里摘结论与逐条表。"""
+    p = REPORTS / "rag_report.md"
+    if not p.exists():
+        return None
+    text = p.read_text(encoding="utf-8")
+    bullets = [ln[2:].strip() for ln in text.splitlines() if ln.startswith("- 用例 ") or ln.startswith("- 定责分布")]
+    rows, in_table = [], False
+    for ln in text.splitlines():
+        if ln.startswith("| 用例 | 问题 |"):
+            in_table = True
+            continue
+        if in_table:
+            if not ln.startswith("|"):
+                break
+            if set(ln.replace("|", "").strip()) <= set("-: "):
+                continue
+            rows.append([c.strip() for c in ln.strip("|").split("|")])
+    return {"bullets": bullets, "rows": rows} if bullets else None
+
+
 def kw(text: str) -> str:
     """把 **xxx** 转成粗体，其余转义。"""
     parts = text.split("**")
@@ -130,6 +152,7 @@ def build() -> str:
     llm = load_json("llm_eval_run.json")
     judge = load_json("deepeval_result.json")
     concl = analysis_summary()
+    rag = parse_rag()
 
     # ---------- KPI ----------
     kpis = []
@@ -143,6 +166,13 @@ def build() -> str:
         s = llm["summary"]
         kpis.append(("LLM 通过率", f"{s['pass_rate'] * 100:.0f}%",
                      f"{s['passed']}/{s['total_cases']} · 判官 Kappa 见下", s["pass_rate"] >= 0.85))
+    if rag and rag["bullets"]:
+        first = rag["bullets"][0]
+        m = re.search(r"通过 \*\*(\d+)\*\* 条", first)
+        total_m = re.search(r"用例 \*\*(\d+)\*\* 条", first)
+        if m and total_m:
+            kpis.append(("RAG 定责通过", f"{m.group(1)}/{total_m.group(1)}",
+                         "检索/生成逐条定责", True))
     if judge:
         kpis.append(("判官通过率", f"{judge['pass_rate'] * 100:.0f}%",
                      f"{judge['passed']}/{judge['cases']} · 正确性 {judge['avg_correctness']}", True))
@@ -272,6 +302,29 @@ def build() -> str:
                 f"（{'可用' if cal.get('usable') else '不可用'}，阈值 0.6）。</p>"
             )
 
+    rag_body = "<p class='muted'>未找到 reports/rag_report.md，先跑 <code>make rag</code>。</p>"
+    if rag and rag["rows"]:
+        bullets = "".join(f"<li>{kw(b)}</li>" for b in rag["bullets"])
+        body_rows = ""
+        for r in rag["rows"]:
+            if len(r) < 7:
+                continue
+            act = r[6]
+            cls = "ok-text" if act == "通过" else "bad-text"
+            body_rows += (
+                f"<tr><td><code>{html.escape(r[0])}</code></td><td>{html.escape(r[1])}</td>"
+                f"<td>{r[2]}</td><td>{r[3]}</td><td>{r[4]}</td><td>{r[5]}</td>"
+                f"<td class='{cls}'>{html.escape(act)}</td></tr>"
+            )
+        rag_body = (
+            f"<ul>{bullets}</ul>"
+            "<table><thead><tr><th>用例</th><th>问题</th><th>Recall</th><th>Precision</th>"
+            "<th>Faithfulness</th><th>要点覆盖</th><th>定责</th></tr></thead>"
+            f"<tbody>{body_rows}</tbody></table>"
+            "<p class='muted'>定责顺序：召回 → 精确 → 忠实 → 要点覆盖。前三项指向检索层，最后一项指向生成层，"
+            "由此可以判断该找算法改检索，还是改提示词。</p>"
+        )
+
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -339,6 +392,7 @@ def build() -> str:
   {section("接口自动化", "pytest · 边界值 / 幂等去重 / 并发一致性 / 契约校验", api_body)}
   {section("负载测试", "场景配比 上报 55% / 查询 30% / 汇总 15%", perf_body)}
   {section("试验数据分析", "pandas 清洗 → 判定口径 → matplotlib 出图", ana_body)}
+  {section("RAG 诊断（定责）", "mini RAG：字符二元组检索 + 朴素拼接生成，故意注入两类故障", rag_body)}
   {section("大模型评测", "规则判分 + 可选判官，三件套版本绑定", llm_body)}
 
   <footer>本页为本地静态看板，数据来自 reports/ 下的产物，不联网、不含任何外发请求。</footer>

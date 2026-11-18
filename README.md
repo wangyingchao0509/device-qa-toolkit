@@ -24,6 +24,7 @@
 | 负载测试 | 三套脚本（内置执行器 / locust / JMeter），输出 TPS 与 P95 曲线 | [`perf/`](perf) |
 | 数据分析 | pandas 清洗 → 判定口径 → matplotlib 出图 → 结论在前的报告 | [`analysis/`](analysis) |
 | 大模型评测 | 20 条黄金集 + 规则断言 + 判官 Kappa 校准 + 成本统计 | [`llm_evals/`](llm_evals) |
+| RAG 定责 | 检索/生成分段诊断，判断该改检索还是改提示词 | [`llm_evals/rag/`](llm_evals/rag) |
 | 环境搭建 SOP | 从裸机到可用测试环境的 11 步操作手册，含自检脚本与故障速查 | [`docs/environment-setup.md`](docs/environment-setup.md) |
 | 网页看板 | 四类结果汇总成单页，含图表与判分对比 | [在线看板](https://wangyingchao0509.github.io/device-qa-toolkit/) · [`scripts/build_dashboard.py`](scripts/build_dashboard.py) |
 
@@ -242,6 +243,8 @@ pytest -m llm                        # 只跑评测相关用例
 3. **三件套版本绑定**：结果文件强制记录 模型 + 提示词 + 数据集 版本和 temperature/seed，否则结论下周无法复现。
 
 当前基线：**18/20 = 90%**，其中 1 例提示词注入泄露、1 例被错误前提带跑的幻觉——这两条是**故意留的**，用来证明框架抓得住问题。
+
+另有 **mini RAG + 定责模块**（`llm_evals/rag/`）：用 7 段政策文档做检索，输出「检索未召回 / 检索噪声 / 生成幻觉 / 答案缺失要点」四类定责，回答"这次答错该找谁改"。
 
 另做过一次**规则判分 vs LLM 判官**的对比实验（DeepSeek 当判官，20 条）：判官把一条正确回答判成 0 分且理由自相矛盾，据此定下“确定性断言用代码、语义质量才交给判官”的分工，见 [llm_evals/docs/judge-vs-rule.md](llm_evals/docs/judge-vs-rule.md)。
 
