@@ -1,4 +1,4 @@
-.PHONY: help install test smoke consistency analysis report perf llm-evals llm-deepeval rag ml-slice triage dashboard clean
+.PHONY: help install test smoke consistency analysis report perf llm-evals llm-deepeval rag ml-all ml-slice ml-leak ml-meta triage dashboard clean
 
 help:
 	@echo "make install    - 创建虚拟环境并安装依赖"
@@ -11,7 +11,10 @@ help:
 	@echo "make llm-evals  - 跑一轮大模型评测并出报告"
 	@echo "make llm-deepeval- 用 DeepEval 跑真指标（需 API Key）"
 	@echo "make rag        - RAG 诊断（定责矩阵）"
+	@echo "make ml-all     - ML 功能测试三件套（泄漏 + 切片 + 蜕变）"
 	@echo "make ml-slice   - 切片分析（生成样例数据 + 找最差切片）"
+	@echo "make ml-leak    - 数据泄漏检测（含划分方式对比）"
+	@echo "make ml-meta    - 蜕变测试（5 条关系）"
 	@echo "make triage     - Bad Case 归因（失败用例该改哪一层）"
 	@echo "make dashboard  - 生成本地网页看板 reports/dashboard.html"
 	@echo "make clean      - 清理缓存与产物"
@@ -48,6 +51,18 @@ llm-deepeval:
 
 rag:
 	.venv/bin/python llm_evals/run_rag_eval.py
+
+ml-leak:
+	.venv/bin/python ml_ftest/leakage.py
+
+ml-meta:
+	.venv/bin/python ml_ftest/metamorphic.py
+
+ml-all:
+	.venv/bin/python ml_ftest/gen_slice_data.py
+	.venv/bin/python ml_ftest/leakage.py
+	.venv/bin/python ml_ftest/slicing.py
+	.venv/bin/python ml_ftest/metamorphic.py
 
 ml-data:
 	.venv/bin/python ml_ftest/gen_slice_data.py
