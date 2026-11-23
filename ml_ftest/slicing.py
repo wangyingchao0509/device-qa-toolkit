@@ -98,6 +98,70 @@ def render(df: pd.DataFrame, out_dir: Path) -> Path:
             return "需给结论"
         return "可接受"
 
+    # ---------- 指标口径（动态取真实数字，不写死） ----------
+    cm = pd.crosstab(df.true_label, df.pred_label).reindex(index=LABELS, columns=LABELS, fill_value=0)
+    wc = min(overall_f1.items(), key=lambda kv: (kv[1] if kv[1] == kv[1] else 9))[0]
+    tp = int(cm.loc[wc, wc])
+    fp = int(cm[wc].sum() - tp)
+    fn = int(cm.loc[wc].sum() - tp)
+    wc_p = tp / (tp + fp) if tp + fp else 0.0
+    wc_r = tp / (tp + fn) if tp + fn else 0.0
+    wc_f1 = 2 * wc_p * wc_r / (wc_p + wc_r) if wc_p + wc_r else 0.0
+    support = {lab: int(cm.loc[lab].sum()) for lab in LABELS}
+    weighted = sum(
+        overall_f1[l] * support[l] for l in LABELS if overall_f1[l] == overall_f1[l]
+    ) / sum(support.values())
+
+    metric_lines = [
+        "## 二、指标口径（这些数字怎么算出来的）",
+        "",
+        "### 混淆矩阵（行=真实，列=预测，对角线为正确）",
+        "",
+        "| 真实＼预测 | " + " | ".join(LABELS) + " |",
+        "|---" * (len(LABELS) + 1) + "|",
+    ]
+    for lab in LABELS:
+        cells = " | ".join(
+            f"**{cm.loc[lab, c]}**" if c == lab else str(cm.loc[lab, c]) for c in LABELS
+        )
+        metric_lines.append(f"| {lab} | {cells} |")
+
+    metric_lines += [
+        "",
+        f"### 以 F1 最低的「{wc}」为例",
+        "",
+        "```",
+        f"TP = {tp}   真实{wc}、预测{wc}（对角线）",
+        f"FP = {fp}   真实不是{wc}、却预测成{wc}",
+        f"FN = {fn}   真实{wc}、却预测成别的",
+        "",
+        f"Precision（查得准）= TP/(TP+FP) = {tp}/({tp}+{fp}) = {wc_p:.3f}",
+        f"Recall（查得全）  = TP/(TP+FN) = {tp}/({tp}+{fn}) = {wc_r:.3f}",
+        f"F1 = 2PR/(P+R) = {wc_f1:.3f}",
+        "```",
+        "",
+        "**为什么用调和平均**：Precision 和 Recall 只要有一端接近 0，F1 就接近 0。",
+        "例如 P=1.0、R=0.2（只敢在十拿九稳时预测）：算术平均 0.60，F1 只有 0.33。",
+        "这正是我们要的——**查得准但漏一半，等于没用**。",
+        "",
+        "### 三种平均方式（本数据实测）",
+        "",
+        "| 方式 | 怎么算 | 本数据 | 特点 |",
+        "|---|---|---|---|",
+        f"| **macro-F1** | 各类 F1 直接平均（每类等权） | **{overall_macro:.3f}** | 更严格，小类差不被稀释 ← **本报告采用** |",
+        f"| weighted-F1 | 按样本数加权平均 | {weighted:.3f} | 大类主导，小类问题会被掩盖 |",
+        f"| accuracy | 猜对的比例 | {overall_acc:.3f} | 类别失衡时会骗人 |",
+        "",
+        f"> macro-F1 比 weighted-F1 低 {weighted - overall_macro:.3f}，说明问题集中在**样本少的类别**（本例指向「{wc}」）。",
+        "",
+        "### 三个坑",
+        "",
+        "1. **某类无样本时 F1 是 nan**，不能当 0 参与平均（本报告已过滤，表中显示「—」）；",
+        "2. **accuracy 在类别失衡时骗人**：95% 样本是「静止」时，全猜静止就有 95%，F1 会当场露馅；",
+        "3. **macro 对稀有类敏感**：若业务确实不在意某类，必须在报告里显式说明，否则会被质疑取舍依据。",
+        "",
+    ]
+
     lines = [
         "# 切片分析报告",
         "",
@@ -142,7 +206,8 @@ def render(df: pd.DataFrame, out_dir: Path) -> Path:
         "> 注意：最差的切片往往是**组合切片**（如「年龄 × 时间段」）。",
         "> 单维切片会把问题稀释到看不出来——这也是为什么真实项目里要主动构造交叉维度。",
         "",
-        "## 二、混淆热点",
+        *metric_lines,
+        "## 三、混淆热点",
         "",
         "| 真实 | 预测 | 次数 | 占全部错误 |",
         "|---|---|---|---|",
@@ -152,7 +217,7 @@ def render(df: pd.DataFrame, out_dir: Path) -> Path:
 
     lines += [
         "",
-        "## 三、逐类指标",
+        "## 四、逐类指标",
         "",
         "| 类别 | F1 |",
         "|---|---|",
@@ -162,7 +227,7 @@ def render(df: pd.DataFrame, out_dir: Path) -> Path:
 
     lines += [
         "",
-        "## 四、全量切片明细",
+        "## 五、全量切片明细",
         "",
         "| 维度 | 取值 | n | accuracy | macro-F1 | 最差类 | 结论 | 样本充足 |",
         "|---|---|---|---|---|---|---|---|",
@@ -175,12 +240,12 @@ def render(df: pd.DataFrame, out_dir: Path) -> Path:
 
     lines += [
         "",
-        "## 五、怎么用这份报告",
+        "## 六、怎么用这份报告",
         "",
         "1. **先看第一节**：最差切片就是风险清单，每条都要有处置结论；",
-        "2. **再看第二节**：混淆热点指向具体问题（走/跑混淆 → 采样率或特征窗口）；",
-        "3. **第三节**：某个类 F1 低但整体高，说明它被平均掉了；",
-        "4. **第四节**：`样本充足=否` 的行不能当缺陷报，要写\"样本不足，需补数据\"。",
+        "2. **再看第三节**：混淆热点指向具体问题（走/跑混淆 → 采样率或特征窗口）；",
+        "3. **第四节**：某个类 F1 低但整体高，说明它被平均掉了；",
+        "4. **第五节**：`样本充足=否` 的行不能当缺陷报，要写\"样本不足，需补数据\"。",
         "",
         "> 关键提醒：**不要只看整体 accuracy。** 本数据整体 {:.1%}，"
         "但最差切片只有 {:.1%}，相差 {:.0f} 个百分点。".format(
