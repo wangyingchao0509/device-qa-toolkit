@@ -1,0 +1,148 @@
+{
+  "samples": 388,
+  "augmented": 88,
+  "targets": 36,
+  "exact": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 36,
+    "tn": 81,
+    "recall": 0.0,
+    "fpr": 0.0
+  },
+  "quantized": {
+    "tp": 12,
+    "fp": 0,
+    "fn": 24,
+    "tn": 81,
+    "recall": 0.3333333333333333,
+    "fpr": 0.0
+  },
+  "best_k": 2,
+  "best": {
+    "k": 2,
+    "tp": 22,
+    "fp": 0,
+    "fn": 14,
+    "tn": 81,
+    "recall": 0.6111111111111112,
+    "fpr": 0.0,
+    "hit_kind": {
+      "noise": 7,
+      "original": 7,
+      "scale": 8
+    }
+  },
+  "grid": [
+    {
+      "k": 0,
+      "tp": 19,
+      "fp": 0,
+      "fn": 17,
+      "tn": 81,
+      "recall": 0.5277777777777778,
+      "fpr": 0.0,
+      "hit_kind": {
+        "noise": 4,
+        "original": 7,
+        "scale": 8
+      }
+    },
+    {
+      "k": 1,
+      "tp": 19,
+      "fp": 0,
+      "fn": 17,
+      "tn": 81,
+      "recall": 0.5277777777777778,
+      "fpr": 0.0,
+      "hit_kind": {
+        "noise": 4,
+        "original": 7,
+        "scale": 8
+      }
+    },
+    {
+      "k": 2,
+      "tp": 22,
+      "fp": 0,
+      "fn": 14,
+      "tn": 81,
+      "recall": 0.6111111111111112,
+      "fpr": 0.0,
+      "hit_kind": {
+        "noise": 7,
+        "original": 7,
+        "scale": 8
+      }
+    },
+    {
+      "k": 4,
+      "tp": 22,
+      "fp": 6,
+      "fn": 14,
+      "tn": 75,
+      "recall": 0.6111111111111112,
+      "fpr": 0.07407407407407407,
+      "hit_kind": {
+        "noise": 7,
+        "original": 7,
+        "scale": 8
+      }
+    },
+    {
+      "k": 6,
+      "tp": 22,
+      "fp": 12,
+      "fn": 13,
+      "tn": 70,
+      "recall": 0.6285714285714286,
+      "fpr": 0.14634146341463414,
+      "hit_kind": {
+        "noise": 7,
+        "original": 7,
+        "scale": 8
+      }
+    },
+    {
+      "k": 8,
+      "tp": 22,
+      "fp": 21,
+      "fn": 13,
+      "tn": 61,
+      "recall": 0.6285714285714286,
+      "fpr": 0.25609756097560976,
+      "hit_kind": {
+        "noise": 7,
+        "original": 7,
+        "scale": 8
+      }
+    }
+  ],
+  "by_kind": {
+    "original": {
+      "n": 13,
+      "hit": 7
+    },
+    "noise": {
+      "n": 7,
+      "hit": 7
+    },
+    "scale": {
+      "n": 8,
+      "hit": 8
+    },
+    "freq": {
+      "n": 8,
+      "hit": 0
+    }
+  },
+  "logical_key": {
+    "tp": 36,
+    "fp": 0,
+    "fn": 0,
+    "tn": 81,
+    "recall": 1.0,
+    "fpr": 0.0
+  }
+}
