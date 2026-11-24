@@ -25,7 +25,7 @@
 | 数据分析 | pandas 清洗 → 判定口径 → matplotlib 出图 → 结论在前的报告 | [`analysis/`](analysis) |
 | 大模型评测 | 20 条黄金集 + 规则断言 + 判官 Kappa 校准 + 成本统计 | [`llm_evals/`](llm_evals) |
 | RAG 定责 | 检索/生成分段诊断，判断该改检索还是改提示词 | [`llm_evals/rag/`](llm_evals/rag) |
-| ML 功能测试 | 泄漏检测（划分对比 + 内容级重复）+ 切片分析 + 蜕变测试，四阶段可跑 | [`ml_ftest/`](ml_ftest) |
+| ML 功能测试 | 泄漏检测（划分对比 + 内容级重复）+ 切片分析 + 蜕变测试 + 预处理一致性，五阶段可跑 | [`ml_ftest/`](ml_ftest) |
 | 环境搭建 SOP | 从裸机到可用测试环境的 11 步操作手册，含自检脚本与故障速查 | [`docs/environment-setup.md`](docs/environment-setup.md) |
 | 网页看板 | 四类结果汇总成单页，含图表与判分对比 | [在线看板](https://wangyingchao0509.github.io/device-qa-toolkit/) · [`scripts/build_dashboard.py`](scripts/build_dashboard.py) |
 
@@ -247,13 +247,14 @@ pytest -m llm                        # 只跑评测相关用例
 
 另有 **mini RAG + 定责模块**（`llm_evals/rag/`）：用 7 段政策文档做检索，输出「检索未召回 / 检索噪声 / 生成幻觉 / 答案缺失要点」四类定责，回答"这次答错该找谁改"。
 
-另有 **ML 功能测试四件套**（`ml_ftest/`），对应《模型功能测试计划》的四个阶段：
+另有 **ML 功能测试五件套**（`ml_ftest/`），对应《模型功能测试计划》的五个阶段：
 
 | 阶段 | 脚本 | 关键产出 |
 |---|---|---|
 | ① 数据泄漏 | `ml_ftest/leakage.py` | 随机划分 vs 分组划分对比：受试者泄漏 100% vs 0%，**模拟虚高 +8.3 个百分点** |
 | ① 内容级重复 | `ml_ftest/hash_dup.py` | 精确哈希检出 0%、二值签名+汉明 61%（误报 0）、逻辑键 100%；重采样类副本抓不到 |
 | ② 切片分析 | `ml_ftest/slicing.py` | 800 条样例、9 维切片、判据线 0.648，最差切片「年龄>50 × 夜间」F1 仅 0.397 |
+| ③ 预处理一致性 | `ml_ftest/preprocess.py` | 四种 skew 量化：统计量用当前批次 −62.5pt、单位 ×9.81 −47.2pt；判据是**特征逐值相等**，不是准确率 |
 | ④ 蜕变测试 | `ml_ftest/metamorphic.py` | 5 条关系，发现「过零率缺失时不变率 72.9%」的弱点 |
 
 一条命令跑完：`make ml-all`

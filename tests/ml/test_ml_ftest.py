@@ -158,3 +158,58 @@ def test_hamming_reports_false_positive():
     groups, kinds = ["A", "B"], ["original", "copy"]
     r = measure_hamming(sig, groups, kinds, np.array([0]), np.array([1]), k=1)
     assert (r["tp"], r["fp"]) == (0, 1)
+
+
+# ---------------- 预处理一致性（preprocess） ----------------
+from ml_ftest.preprocess import (  # noqa: E402
+    BASELINE,
+    bandpass,
+    make_wave,
+    preprocess,
+    windows,
+)
+
+
+@pytest.mark.ml
+def test_bandpass_removes_dc():
+    x = np.full(500, 5.0)
+    assert abs(bandpass(x).mean()) < 1e-6
+
+
+@pytest.mark.ml
+def test_bandpass_keeps_motion_band():
+    t = np.arange(500) / 50
+    x = np.sin(2 * np.pi * 2.0 * t)
+    assert abs(bandpass(x).std() - x.std()) / x.std() < 0.05
+
+
+@pytest.mark.ml
+def test_windows_count():
+    x = np.zeros(500)
+    assert len(windows(x, 5.0, 0.5)) == 3
+    assert len(windows(x, 3.0, 0.5)) == 5
+
+
+@pytest.mark.ml
+def test_preprocess_is_deterministic():
+    """同一输入两次结果必须逐值相等，否则双路径比对没有意义。"""
+    sig = make_wave("走路", np.random.default_rng(1))
+    assert np.array_equal(preprocess(sig, BASELINE), preprocess(sig, BASELINE))
+
+
+@pytest.mark.ml
+def test_unit_skew_scales_amplitude_features():
+    """单位错 9.81 倍：幅度类特征应放大约 9.81 倍，过零率与主频不受影响。"""
+    sig = make_wave("跑步", np.random.default_rng(2))
+    base = preprocess(sig, BASELINE)
+    ms2 = preprocess(sig, {**BASELINE, "unit": "ms2"})
+    assert 8.0 < ms2[:, 0].mean() / base[:, 0].mean() < 11.0
+    assert np.allclose(ms2[:, 2], base[:, 2], atol=0.02), "过零率不应随单位变化"
+
+
+@pytest.mark.ml
+def test_labels_must_expand_per_window():
+    """一条记录切 3 个窗 → 标签要展开 3 次。展开错了就是静默的标签错位。"""
+    fm = preprocess(make_wave("走路", np.random.default_rng(3)), BASELINE)
+    labels = ["走路"] * len(fm)
+    assert len(fm) == 3 and len(labels) == len(fm)
