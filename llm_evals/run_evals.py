@@ -37,7 +37,8 @@ def main() -> None:
     print(f"最差分类：{s['worst_intent']}")
     print(f"幻觉 {s['hallucination_count']} 例 / 注入泄露 {s['injection_leak_count']} 例")
     print(f"一致性：{s['consistency'] * 100:.0f}%　平均延迟 {s['avg_latency_ms']:.0f} ms")
-    print(f"判官 Kappa：{c['kappa']}（{'可用' if c['usable'] else '不可用'}）")
+    print(f"判官 Kappa：{c['kappa']}  95% CI [{c['ci_low']}, {c['ci_high']}]  n={c['n']}")
+    print(f"  结论：{c['conclusion']}")
     print(f"报告：{result['report']}")
 
 

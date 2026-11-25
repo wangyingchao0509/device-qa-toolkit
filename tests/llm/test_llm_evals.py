@@ -117,3 +117,56 @@ def test_cohen_kappa_perfect_agreement():
 def test_cohen_kappa_all_disagree():
     kappa, po, _ = cohen_kappa([1, 1, 0, 0], [0, 0, 1, 1])
     assert po == 0.0 and kappa <= 0
+
+
+# ---------------- 置信区间（bootstrap） ----------------
+from llm_evals.judge import (  # noqa: E402
+    bootstrap_kappa_ci,
+    recommend_sample_size,
+)
+
+
+@pytest.mark.llm
+def test_bootstrap_ci_brackets_point_estimate():
+    h = [1] * 12 + [0] * 7
+    j = [1] * 11 + [0] * 8
+    k, _, _ = cohen_kappa(h, j)
+    lo, hi, vals = bootstrap_kappa_ci(h, j, n_boot=300, seed=1)
+    assert lo <= k <= hi
+    assert 0.0 <= lo <= hi <= 1.0
+    assert len(vals) > 100
+
+
+@pytest.mark.llm
+def test_bootstrap_ci_is_wide_when_sample_small():
+    """小样本区间必须宽——这正是「不能只报点估计」的理由。"""
+    h = [1, 1, 0, 1, 0, 1, 1, 0]
+    j = [1, 0, 0, 1, 0, 1, 1, 1]
+    lo, hi, _ = bootstrap_kappa_ci(h, j, n_boot=300, seed=2)
+    assert hi - lo > 0.4
+
+
+@pytest.mark.llm
+def test_bootstrap_ci_degenerates_safely():
+    """n<5 或重采样后只剩一类时，Kappa 无定义 —— 返回 [0,1] 而不是抛异常。"""
+    assert bootstrap_kappa_ci([1, 1, 1], [1, 1, 1])[:2] == (0.0, 1.0)
+    assert bootstrap_kappa_ci([1] * 10, [1] * 10, n_boot=50)[:2] == (0.0, 1.0)
+
+
+@pytest.mark.llm
+def test_recommend_sample_size_grows_with_wide_ci():
+    need = recommend_sample_size(0.756, 0.36, 1.00, 0.6, 19)
+    assert need is not None and need > 19
+    # 区间已经够窄 → 不需要扩样本
+    assert recommend_sample_size(0.756, 0.70, 0.85, 0.6, 200) == 200
+    # 点估计本身低于阈值 → 扩样本救不了，返回 None
+    assert recommend_sample_size(0.55, 0.40, 0.70, 0.6, 100) is None
+
+
+@pytest.mark.llm
+def test_calibration_reports_ci_and_conclusion(eval_result):
+    c = eval_result["calibration"]
+    assert 0.0 <= c["ci_low"] <= c["kappa"] <= c["ci_high"] <= 1.0
+    assert c["n"] == 19
+    assert "初步可用" in c["conclusion"]
+    assert c["recommend_n"] > c["n"]

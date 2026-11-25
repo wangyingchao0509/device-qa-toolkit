@@ -242,9 +242,20 @@ def render_report(summary: dict, calibration: dict, provider_name: str, fig_path
         "",
         "## 四、判官校准",
         "",
-        f"- 校准样本 {calibration['n']} 条，人工与判官观察一致率 **{calibration['agreement'] * 100:.0f}%**",
-        f"- **Cohen's Kappa = {calibration['kappa']}**（阈值 0.6）："
-        f"{'可用' if calibration['usable'] else '**不可用，需调整判官**'}",
+        f"- 校准样本 **{calibration['n']}** 条，人工与判官观察一致率 **{calibration['agreement'] * 100:.0f}%**",
+        f"- **Cohen's Kappa = {calibration['kappa']}**，"
+        f"bootstrap 95% CI **[{calibration['ci_low']:.2f}, {calibration['ci_high']:.2f}]**（阈值 0.6）",
+        f"- 结论：**{calibration['conclusion']}**",
+        f"  - bootstrap 重采样里 **{calibration['below_ratio'] * 100:.0f}%** 低于阈值；"
+        + (
+            f"要让区间下限站上 0.6，样本约需扩到 **{calibration['recommend_n']}** 条"
+            if calibration.get("recommend_n") and calibration["recommend_n"] > calibration["n"]
+            else "样本量已足以让下限高于阈值"
+        ),
+        "",
+        "> 为什么不能只报点估计：Kappa 的分母含 Pe，没有闭式方差，"
+        "小样本直接套比例的公式会算出超过 1 的区间。"
+        f"{calibration['n']} 条样本的 0.756 与 200 条的 0.756 不是一回事。",
     ]
     if calibration["disagreements"]:
         lines += ["", "分歧样本（判官判错的地方）："]
